@@ -18,8 +18,8 @@ def hello():
     return 'Hello World'
 
 #decorator 
-# 1. decorator function definition (probably it is predefined )
-# 2. decorator get parameter which would be wrapped function
+# 1) decorator function definition (probably it is predefined )
+# 2) decorator get parameter which would be wrapped function
 ######################## eg ########################  
 #import datetime
 #
