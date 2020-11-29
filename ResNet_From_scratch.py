@@ -37,16 +37,16 @@ import torch.nn as nn
 # blocks would be used repeatly 
 # This is a module of each conv type
 class block(nn.Module): 
-    def __init__(self, in_channels, out_channels, identity_downsample=None, stride=1):
+    def __init__(self, in_channels, intermediate_channels, identity_downsample=None, stride=1):
         # identity_downsample would be needed when changinf N of channels .,, and so on. see later. 
         super(block, self).__init__()
         self.expansion = 4 
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0)
-        self.bn1 = nn.BatchNorm2d(out_channels)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=stride, padding=1)
-        self.bn2 = nn.BatchNorm2d(out_channels)
-        self.conv3 = nn.Conv2d(out_channels, out_channels*self.expansion, kernel_size=1, stride=1, padding=0)
-        self.bn3 = nn.BatchNorm2d(out_channels*self.expansion)
+        self.conv1 = nn.Conv2d(in_channels, intermediate_channels, kernel_size=1, stride=1, padding=0)
+        self.bn1 = nn.BatchNorm2d(intermediate_channels)
+        self.conv2 = nn.Conv2d(intermediate_channels, intermediate_channels, kernel_size=3, stride=stride, padding=1)
+        self.bn2 = nn.BatchNorm2d(intermediate_channels)
+        self.conv3 = nn.Conv2d(intermediate_channels, intermediate_channels*self.expansion, kernel_size=1, stride=1, padding=0)
+        self.bn3 = nn.BatchNorm2d(intermediate_channels*self.expansion)
         self.relu = nn.ReLU()
         self.identity_downsample = identity_downsample
 
@@ -82,10 +82,10 @@ class ResNet(nn.Module):
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         # ResNet layers 
-        self.layer1 = self._make_layer(block, layers[0], out_channels=64, stride=1)
-        self.layer2 = self._make_layer(block, layers[1], out_channels=128, stride=2)
-        self.layer3 = self._make_layer(block, layers[2], out_channels=256, stride=2)
-        self.layer4 = self._make_layer(block, layers[3], out_channels=512, stride=2)
+        self.layer1 = self._make_layer(block, layers[0], intermediate_channels=64, stride=1)
+        self.layer2 = self._make_layer(block, layers[1], intermediate_channels=128, stride=2)
+        self.layer3 = self._make_layer(block, layers[2], intermediate_channels=256, stride=2)
+        self.layer4 = self._make_layer(block, layers[3], intermediate_channels=512, stride=2)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1,1)) # we define the output size , fix it to that particular size
         self.fc = nn.Linear(512*4, num_classes)
@@ -106,22 +106,22 @@ class ResNet(nn.Module):
         x = self.fc(x)
         return x
         
-    def _make_layer(self, block, num_residual_blocks, out_channels, stride):
+    def _make_layer(self, block, num_residual_blocks, intermediate_channels, stride):
         identity_downsample = None 
         layers = []
 
-        if stride != 1 or self.in_channels != out_channels*4 : 
-            identity_downsample = nn.Sequential(nn.Conv2d(self.in_channels, out_channels*4, kernel_size=1, stride=stride),
-                                                nn.BatchNorm2d(out_channels*4))  
+        if stride != 1 or self.in_channels != intermediate_channels*4 : 
+            identity_downsample = nn.Sequential(nn.Conv2d(self.in_channels, intermediate_channels*4, kernel_size=1, stride=stride),
+                                                nn.BatchNorm2d(intermediate_channels*4))  
 
         # it's gonna change N of channels, in this case, at the first layer (conv2x) , out channels would be 256 
-        layers.append(block(self.in_channels, out_channels, identity_downsample, stride)) 
+        layers.append(block(self.in_channels, intermediate_channels, identity_downsample, stride)) 
         # Note that in the block class, out channesl times 4 
-        self.in_channels = out_channels*4
+        self.in_channels = intermediate_channels*4
 
         for i in range(num_residual_blocks-1): 
         # the reason num-1 : we already append one layer in layer at the above 
-            layers.append(block(self.in_channels, out_channels))
+            layers.append(block(self.in_channels, intermediate_channels))
 
         return nn.Sequential(*layers)
 
@@ -137,8 +137,9 @@ def ResNet151(img_channels, num_classes):
 
 def test(): 
     net = ResNet50()
-    x = torch.randn(2, 3, 244, 244)
-    y = net(x).to('cuda')
+    x = torch.randn(2, 3, 224, 224)
+    
+    y = net(x).to('cuda') if torch.cuda.is_available() else net(x).to('cpu')
     print(y.shape)
 
 if __name__ == "__main__": 
